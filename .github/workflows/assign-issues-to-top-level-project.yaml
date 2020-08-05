@@ -1,0 +1,16 @@
+name: Auto Assign to Project
+
+on: [issues]
+
+jobs:
+  github-actions-automate-projects:
+    runs-on: ubuntu-latest
+    steps:
+    - name: add-new-issues-to-repository-based-project-column
+      uses: docker://takanabe/github-actions-automate-projects:v0.0.1
+      if: github.event_name == 'issues' && github.event.action == 'opened'
+      env:
+        GITHUB_TOKEN: ${{ secrets.MY_GITHUB_ACTIONS_TOKEN }}
+        GITHUB_PROJECT_URL: https://github.com/orgs/jamesodhunt-org/projects/2
+        GITHUB_PROJECT_COLUMN_NAME: 'To do'
+        DEBUG: true
