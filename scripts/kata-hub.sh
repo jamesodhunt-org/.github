@@ -92,11 +92,23 @@ EOT
 #
 #   inertia-preview : Projects.
 #   starfox-preview : Project card details.
+github_api_with_preview()
+{
+    local preview="${1:-}"
+
+    [ -z "$preview" ] && die "need GitHub API preview value"
+
+    shift
+
+    hub api -H "accept: ${preview}" "$@"
+}
+
+# Make a GitHub API call using the default preview value
 github_api()
 {
     local preview='application/vnd.github.inertia-preview+json'
 
-    hub api -H "accept: ${preview}" "$@"
+    github_api_with_preview "$preview" "$@"
 }
 
 # Convert an API url to a human-readable HTML one.
@@ -629,6 +641,24 @@ list_issue_linked_prs()
     done
 }
 
+# Returns a comma-separated list of PR URLs associated with
+# the specified issue number.
+get_prs_linked_to_issue()
+{
+    local issue="${1:-}"
+
+    [ -z "$issue" ] && die "need issue"
+
+    local preview='application/vnd.github.mockingbird-preview+json'
+
+    github_api_with_preview \
+        "$preview" \
+        "/repos/{owner}/{repo}/issues/${issue}/timeline" |\
+        jq -r '.[] | select(.source != null) | .source.issue.pull_request.html_url' |\
+        tr '\n' ',' |\
+        sed 's/,$//g'
+}
+
 list_pr_linked_issues()
 {
     local repo=$(get_repo_slug)
@@ -636,9 +666,22 @@ list_pr_linked_issues()
 
     echo "# Issues with linked PRs"
     echo "#"
-    echo "# Fields: issue-url"
+    echo "# Fields: issue;issue-url;pr-urls"
 
-    raw_github_query "$query" | jq -r '.items[].html_url' | sort -n
+    local fields
+
+    raw_github_query "$query" |\
+        jq -r '.items[] | [ .number, .html_url] | join("|")' |\
+        sort -n |\
+        while read fields
+        do
+            local issue=$(echo "$fields"|cut -d'|' -f1)
+            local issue_url=$(echo "$fields"|cut -d'|' -f2)
+
+            local pr_url=$(get_prs_linked_to_issue "$issue")
+
+            printf "%s;%s;%s\n" "$issue" "$issue_url" "$pr_url"
+        done
 }
 
 setup()
