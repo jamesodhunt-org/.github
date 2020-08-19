@@ -182,10 +182,7 @@ get_project_columns_url()
     columns_url="$(github_api \
         -XGET "${project_url}" \
         -f state="open" |\
-        jq -r '.[] |
-        select((.name | ascii_downcase)
-            == ($project_name | ascii_downcase))
-            | .columns_url' \
+        jq -r '.[] | select((.name | ascii_downcase) == ($project_name | ascii_downcase)) | .columns_url' \
         --arg project_name "$project")"
 
     echo "$columns_url"
