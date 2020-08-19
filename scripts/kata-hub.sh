@@ -617,6 +617,7 @@ raw_github_query()
     curl -sL "https://api.github.com/search/issues?q=${query}"
 }
 
+# BUG: FIXME: doesn't work!!
 list_issue_linked_prs()
 {
     local repo=$(get_repo_slug)
@@ -628,7 +629,7 @@ list_issue_linked_prs()
 
     local line
 
-    raw_github_query "$query" | jq -r '.items[] |
+    raw_github_query "$query" | jq -r 'select(.items != null) | .items[] |
             [ .url, .html_url] |
             join("|")' | sort -n | while read line
     do
@@ -671,7 +672,9 @@ list_pr_linked_issues()
     local fields
 
     raw_github_query "$query" |\
-        jq -r '.items[] | [ .number, .html_url] | join("|")' |\
+        jq -r 'select(.items != null) | .items[] |
+        [ .number, .html_url] |
+        join("|")' |\
         sort -n |\
         while read fields
         do
