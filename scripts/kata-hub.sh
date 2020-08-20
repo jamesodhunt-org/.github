@@ -611,13 +611,20 @@ list_milestones()
     echo
 }
 
-raw_github_query()
+# Run a "human-readable" GitHub query.
+#
+# Note that the query terms must be *space* separated!
+#
+# See:
+#
+# https://docs.github.com/en/github/searching-for-information-on-github/understanding-the-search-syntax
+github_human_query()
 {
     local query="${1:-}"
 
     [ -z "$query" ] && die "need query"
 
-    curl -sL "https://api.github.com/search/issues?q=${query}"
+    hub api -XGET search/issues -f q="${query}"
 }
 
 # Returns a comma-separated list of PR URLs associated with
@@ -645,7 +652,7 @@ get_prs_linked_to_issue()
 list_pr_linked_issues()
 {
     local repo=$(get_repo_slug)
-    local query="repo:${repo}+is:issue+is:open+linked:pr"
+    local query="repo:${repo} is:issue is:open linked:pr"
 
     echo "# Issues with linked PRs"
     echo "#"
@@ -653,7 +660,7 @@ list_pr_linked_issues()
 
     local fields
 
-    raw_github_query "$query" |\
+    github_human_query "$query" |\
         jq -r 'select(.items != null) | .items[] | [ .number, .html_url] | join("|")' |\
         sort -n |\
         while read fields
@@ -682,7 +689,7 @@ list_pr_linked_issues()
 list_issue_linked_prs()
 {
     local repo=$(get_repo_slug)
-    local query="repo:${repo}+is:pr+is:open+linked:issue"
+    local query="repo:${repo} is:pr is:open linked:issue"
 
     echo "# PRs with linked issues"
     echo "#"
@@ -692,7 +699,7 @@ list_issue_linked_prs()
 
     local line
 
-    raw_github_query "$query" |\
+    github_human_query "$query" |\
             jq -r 'select(.items != null) | .items[] | .html_url' |\
             sort -n |\
             while read line
