@@ -194,7 +194,10 @@ get_project_columns_url()
     columns_url="$(github_api \
         -XGET "${project_url}" \
         -f state="open" |\
-        jq -r '.[] | select((.name | ascii_downcase) == ($project_name | ascii_downcase)) | .columns_url' \
+        jq -r '.[] |
+        select((.name | ascii_downcase)
+            == ($project_name | ascii_downcase)) |
+            .columns_url' \
         --arg project_name "$project")"
 
     echo "$columns_url"
@@ -617,31 +620,6 @@ raw_github_query()
     curl -sL "https://api.github.com/search/issues?q=${query}"
 }
 
-# BUG: FIXME: doesn't work!!
-list_issue_linked_prs()
-{
-    local repo=$(get_repo_slug)
-    local query="repo:${repo}+is:pr+is:open+linked:issue"
-
-    echo "# PRs with linked issues"
-    echo "#"
-    echo "# Fields: pr-url;issue-url"
-
-    local line
-
-    raw_github_query "$query" | jq -r 'select(.items != null) | .items[] |
-            [ .url, .html_url] |
-            join("|")' | sort -n | while read line
-    do
-            local issue_api_url=$(echo "$line"|cut -d'|' -f1)
-            local pr_url=$(echo "$line"|cut -d'|' -f2)
-
-            local issue_url=$(github_api_url_to_html_url "$issue_api_url")
-
-            printf "%s;%s\n" "$pr_url" "$issue_url"
-    done
-}
-
 # Returns a comma-separated list of PR URLs associated with
 # the specified issue number.
 get_prs_linked_to_issue()
@@ -660,6 +638,10 @@ get_prs_linked_to_issue()
         sed 's/,$//g'
 }
 
+# List issues with one or more [*] links to a PR.
+#
+# [*] - Consider an issue which has fixes in master and a number of stable
+#       branches.
 list_pr_linked_issues()
 {
     local repo=$(get_repo_slug)
@@ -685,6 +667,63 @@ list_pr_linked_issues()
 
             printf "%s;%s;%s\n" "$issue" "$issue_url" "$pr_url"
         done
+}
+
+# List PRs with one or more [*] links to an issue.
+#
+# [*] - Consider a PR which includes multiple "Fixes: #XXX" comments.
+#
+# Notes: Since GitHub doesn't provide an API to list issues fixed by a PR,
+# this functions strategy is:
+#
+# 1) List all issues with linked PRs.
+# 2) List all PRs with linked issues.
+# 3) Loop over the results of (1) looking for each PR found in (2).
+#
+# This works, but is very inefficient!
+list_issue_linked_prs()
+{
+    local repo=$(get_repo_slug)
+    local query="repo:${repo}+is:pr+is:open+linked:issue"
+
+    echo "# PRs with linked issues"
+    echo "#"
+    echo "# Fields: pr-url;issue-urls"
+
+    local issues_with_linked_prs=$(list_pr_linked_issues | grep -v "^\#")
+
+    local line
+
+    raw_github_query "$query" | jq -r 'select(.items != null) | .items[] |
+            .html_url' |\
+            sort -n |\
+            while read line
+    do
+            local pr_url=$(echo "$line"|cut -d'|' -f1)
+
+            local issues=()
+
+            local issue_line
+
+            # Note that this (multi-line) variable cannot be quoted
+            for issue_line in $issues_with_linked_prs
+            do
+                echo "$issue_line"|grep -qv ";${pr_url}$" && continue
+
+                local issue_url=$(echo "$issue_line"|cut -d';' -f2)
+
+                issues+=("$issue_url")
+            done
+
+            # Handle an "impossible situation"; GitHub told us this PR has
+            # linked issues, so there should be some!
+            [ ${#issues[*]} = 0 ] && \
+                die "failed to find issues linked to issue-linked PRs"
+
+            local issue_urls=$(echo "${issues[@]}"|tr ' ' ',')
+
+            printf "%s;%s\n" "$pr_url" "$issue_urls"
+    done
 }
 
 setup()
