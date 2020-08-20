@@ -654,9 +654,7 @@ list_pr_linked_issues()
     local fields
 
     raw_github_query "$query" |\
-        jq -r 'select(.items != null) | .items[] |
-        [ .number, .html_url] |
-        join("|")' |\
+        jq -r 'select(.items != null) | .items[] | [ .number, .html_url] | join("|")' |\
         sort -n |\
         while read fields
         do
@@ -694,8 +692,8 @@ list_issue_linked_prs()
 
     local line
 
-    raw_github_query "$query" | jq -r 'select(.items != null) | .items[] |
-            .html_url' |\
+    raw_github_query "$query" |\
+            jq -r 'select(.items != null) | .items[] | .html_url' |\
             sort -n |\
             while read line
     do
