@@ -349,14 +349,16 @@ list_project_columns()
     [ -z "$columns_url" ] && die "cannot determine column URL for project '$project'"
 
     echo "# Columns for '$project_type' project '$project' (url: $project_url)"
+    echo "#"
+    echo "# Fields: column-index;column-url;column-id;column-name"
 
     local column_details
     local column_index=0
 
-    echo "# (index; column_url; column_id; column_name)"
-
     github_api "$columns_url" |\
-            jq -r '.[] | join("|")' |\
+            jq -r '.[] |
+            map_values(.|tostring) |
+            join("|")' |\
             while read column_details
     do
         local column_url=$(echo "$column_details"|cut -d'|' -f1)
