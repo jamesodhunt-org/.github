@@ -789,9 +789,11 @@ list_issue_linked_prs()
             [ ${#issues[*]} = 0 ] && \
                 die "failed to find issues linked to issue-linked PRs"
 
-            local issue_urls=$(echo "${issues[@]}"|tr ' ' ',')
-
-            printf "%s;%s\n" "$pr_url" "$issue_urls"
+            local issue_url
+            for issue_url in "${issues[@]}"
+            do
+                printf "%s;%s\n" "$pr_url" "$issue_url"
+            done
     done
 }
 
