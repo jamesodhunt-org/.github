@@ -718,9 +718,7 @@ list_issues_for_pr()
 
     [ -z "$pr" ] && die "need PR"
 
-    local prs=$(list_issue_linked_prs "true" || true)
-
-    [ -z "$prs" ] && return
+    local prs=$(list_issue_linked_prs "true")
 
     echo "# Issues linked to PR"
     echo "#"
