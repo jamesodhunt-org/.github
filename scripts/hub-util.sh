@@ -119,6 +119,24 @@ github_api()
     github_api_with_preview "$preview" "$@"
 }
 
+# Run a "human-readable" GitHub query.
+#
+# Note that the query terms must be *space* separated!
+#
+# See:
+#
+# https://docs.github.com/en/github/searching-for-information-on-github/understanding-the-search-syntax
+github_human_query()
+{
+    local query="${1:-}"
+
+    [ -z "$query" ] && die "need query"
+
+    github_api \
+        -XGET search/issues \
+        -f q="${query}"
+}
+
 # Convert an API url to a human-readable HTML one.
 #
 # Example:
@@ -236,9 +254,9 @@ list_projects_for_issue()
     # Note that all events are always available to query. There is no
     # timestamp, but they are ordered, first to last. Hence, only consider the
     # last event (array index '-1') as it shows the current status.
-    hub api \
-        --paginate \
-        -H 'accept: application/vnd.github.starfox-preview+json' \
+    local preview='application/vnd.github.starfox-preview+json'
+
+    github_api_with_preview "$preview" \
         -XGET "/repos/{owner}/{repo}/issues/${issue}/events" |\
         jq -r '.[-1] |
         select (.project_card != null) .project_card |
@@ -620,24 +638,6 @@ list_milestones()
     echo
 }
 
-# Run a "human-readable" GitHub query.
-#
-# Note that the query terms must be *space* separated!
-#
-# See:
-#
-# https://docs.github.com/en/github/searching-for-information-on-github/understanding-the-search-syntax
-github_human_query()
-{
-    local query="${1:-}"
-
-    [ -z "$query" ] && die "need query"
-
-    hub api \
-        --paginate \
-        -XGET search/issues -f q="${query}"
-}
-
 # Returns a comma-separated list of PR URLs associated with
 # the specified issue number.
 get_prs_linked_to_issue()
@@ -718,7 +718,9 @@ list_issues_for_pr()
 
     [ -z "$pr" ] && die "need PR"
 
-    local prs=$(list_issue_linked_prs "true")
+    local prs=$(list_issue_linked_prs "true" || true)
+
+    [ -z "$prs" ] && return
 
     echo "# Issues linked to PR"
     echo "#"
@@ -763,12 +765,6 @@ list_issue_linked_prs()
     local issues_with_linked_prs=$(list_pr_linked_issues "$show_all" |\
         grep -v "^\#")
 
-    # BUG: FIXME
-    count=$(echo "$issues_with_linked_prs"|wc -l)
-    echo "FIXME: list_issue_linked_prs: count: $count" > /tmp/count
-
-    local FIXME_query_results=$(github_human_query "$query"|jq -r 'select(.items != null) | .items[] | .html_url')
-
     local pr_url
 
     github_human_query "$query" |\
@@ -797,9 +793,7 @@ list_issue_linked_prs()
 
             local issue_urls=$(echo "${issues[@]}"|tr ' ' ',')
 
-            # FIXME:
-            printf "%s;%s\n" "$pr_url" "$issue_urls" |\
-                tee /tmp/list-issue-linked-prs.txt
+            printf "%s;%s\n" "$pr_url" "$issue_urls"
     done
 }
 
@@ -817,11 +811,24 @@ handle_args()
 {
     setup
 
+    local show_all="false"
+    local opt
+
+    while getopts "ah" opt "$@"
+    do
+        case "$opt" in
+            a) show_all="true" ;;
+            h) usage && exit 0 ;;
+        esac
+    done
+
+    shift $[$OPTIND-1]
+
     local cmd="${1:-}"
 
     case "$cmd" in
         add-issue) ;;
-        help|-h|--help|usage) usage && exit 0 ;;
+        help|--help|usage) usage && exit 0 ;;
         list-columns) ;;
         list-issue-linked-prs) ;;
         list-issue-projects) ;;
@@ -865,7 +872,7 @@ handle_args()
             list_project_columns "$project" "$project_type"
             ;;
 
-        list-issue-linked-prs) list_issue_linked_prs "false" ;;
+        list-issue-linked-prs) list_issue_linked_prs "$show_all" ;;
 
         list-issue-projects)
             issue="${1:-}"
@@ -888,7 +895,7 @@ handle_args()
 
         list-milestones) list_milestones ;;
 
-        list-pr-linked-issues) list_pr_linked_issues ;;
+        list-pr-linked-issues) list_pr_linked_issues "$show_all" ;;
 
         list-prs-for-issue)
             issue="${1:-}"
