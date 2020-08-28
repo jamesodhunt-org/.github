@@ -253,14 +253,15 @@ list_projects_for_issue()
 
     # Note that all events are always available to query. There is no
     # timestamp, but they are ordered, first to last. Hence, only consider the
-    # last event (array index '-1') as it shows the current status.
+    # last event as it shows the current status.
     local preview='application/vnd.github.starfox-preview+json'
 
     github_api_with_preview "$preview" \
         -XGET "/repos/{owner}/{repo}/issues/${issue}/events" |\
-        jq -r '.[-1] |
-        select (.project_card != null) .project_card |
+        jq -r '.[] |
+            select(.project_card != null) | .project_card |
             join("|")' |\
+            tail -1 |\
         while read fields
         do
             local card_id=$(echo "$fields"|cut -d\| -f1)
@@ -299,7 +300,7 @@ issue_is_in_project()
     local card_id=$(echo "$fields"|cut -d';' -f4)
     local card_url=$(echo "$fields"|cut -d';' -f5)
 
-    echo "${column_name};${card_id};${card_url}"
+    printf "%s;%s;%s\n" "$column_name" "${card_id}" "${card_url}"
 }
 
 find_git_checkout()
@@ -599,6 +600,9 @@ list_projects()
 
     local fields
 
+    echo "# Fields: project-name;project-url"
+    echo "#"
+
     github_api "$project_url" | jq -r '.[] |
         [.name, .html_url] |
         join ("|")' |\
@@ -607,7 +611,7 @@ list_projects()
         local project_name=$(echo "$fields"|cut -d'|' -f1)
         local project_url=$(echo "$fields"|cut -d'|' -f2)
 
-        printf "\"%s\" %s\n" "$project_name" "$project_url"
+        printf "%s;%s\n" "$project_name" "$project_url"
     done | sort -k1,1
 
     echo
