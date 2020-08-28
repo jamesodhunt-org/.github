@@ -260,6 +260,7 @@ list_projects_for_issue()
         -XGET "/repos/{owner}/{repo}/issues/${issue}/events" |\
         jq -r '.[] |
             select(.project_card != null) | .project_card |
+            map_values(.|tostring) |
             join("|")' |\
             tail -1 |\
         while read fields
