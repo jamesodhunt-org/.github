@@ -411,7 +411,7 @@ list_issues_in_project()
 
         github_api "$column_cards_url" |\
             jq -r '.[] |
-            [.id, .url, .content_url] |
+            [(.id|tostring), .url, .content_url] |
             join("|")' |\
             while read fields
         do
@@ -487,7 +487,7 @@ add_issue_to_project()
 
     # Issues are implicity repo-level entities
     local issue_id="$(github_api "repos/{owner}/{repo}/issues/${issue}" |\
-            jq -r '.id')"
+        jq -r '(.id|tostring)')"
     [ -z "$issue_id" ] && die "cannot determine issue id for issue $issue"
 
     local project_url
@@ -540,7 +540,7 @@ move_issue_project_column()
 
     # Issues are implicity repo-level entities
     local issue_id="$(github_api "repos/{owner}/{repo}/issues/${issue}" |\
-            jq -r '.id')"
+        jq -r '(.id|tostring)')"
     [ -z "$issue_id" ] && die "cannot determine issue id for issue $issue"
 
     local project_url
@@ -619,7 +619,7 @@ list_milestones()
 
     github_api -XGET "/repos/{owner}/{repo}/milestones" |\
         jq -r '.[] |
-        [.title, .html_url, .open_issues, .closed_issues] |
+        [.title, .html_url, (.open_issues|tostring), (.closed_issues|tostring)] |
         join ("|")' |\
     while read fields
     do
@@ -676,7 +676,7 @@ list_pr_linked_issues()
     local fields
 
     github_human_query "$query" |\
-        jq -r 'select(.items != null) | .items[] | [ .number, .html_url] | join("|")' |\
+        jq -r 'select(.items != null) | .items[] | [ (.number|tostring), .html_url] | join("|")' |\
         sort -n |\
         while read fields
         do
