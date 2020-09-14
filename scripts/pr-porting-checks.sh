@@ -141,6 +141,13 @@ handle_args()
 		exit 1
 	}
 
+	[ "$forward_port_pr" = true ] && [ "${#backport_labels_found[@]}" -gt 0 ] && {
+		printf "::error::Forward port labelled PR %s cannot have backport labels (backport labels found '%s')\n" \
+		"$pr" \
+		$(echo "${backport_labels_found[@]}" | tr ' ' ',')
+		exit 1
+    }
+
 	[ "${#backport_labels_found[@]}" -gt 1 ] && {
 		printf "::error::PR %s has too many backport labels (expected one of '%s', found '%s')\n" \
 		"$pr" \
@@ -157,6 +164,13 @@ handle_args()
 		$(echo "${forward_port_labels[@]}" | tr ' ' ',')
 		exit 1
 	}
+
+	[ "$backport_pr" = true ] && [ "${#forward_port_labels_found[@]}" -gt 0 ] && {
+		printf "::error::Backport labelled PR %s cannot have forward port labels (forward port labels found '%s')\n" \
+		"$pr" \
+		$(echo "${forward_port_labels_found[@]}" | tr ' ' ',')
+		exit 1
+    }
 
 	[ "${#forward_port_labels_found[@]}" -gt 1 ] && {
 		printf "::error::PR %s has too many forward port labels (expected one of '%s', found '%s')\n" \
