@@ -57,6 +57,8 @@ setup()
 
 handle_args()
 {
+	[ "${1:-}" = '-h' ] && usage && exit 0
+
 	local pr="${1:-}"
 	local repo="${2:-}"
 
