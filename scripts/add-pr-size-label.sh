@@ -95,7 +95,8 @@ setup()
 
     local vars=()
 
-    vars+=("GITHUB_USER")
+    # FIXME: TESTING
+    #vars+=("GITHUB_USER")
     vars+=("GITHUB_TOKEN")
 
     local var
